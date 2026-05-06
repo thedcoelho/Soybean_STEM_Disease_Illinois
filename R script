@@ -1,0 +1,149 @@
+library(plotly)
+
+data <- data.frame(
+  Disease = c("Brown Stem Rot", "Stem Canker", "Anthracnose Stem Blight", 
+              "Pod & Stem Blight", "Red Crown Rot", "Fusarium wilt/root rot",
+              "Charcoal Rot", "Southern Blight"),
+  
+  Temp = c(20, 26, 27.5, 27.5, 27.5, 27.5, 31.5, 30),
+  
+  Moisture = c(0.92, 0.82, 0.78, 0.70, 0.65, 0.42, 0.18, 0.60),
+  
+  Stage = c(
+    11,  # Brown Stem Rot: around R5
+    4,   # Stem Canker: around V3
+    13,  # Anthracnose Stem Blight: around R7
+    12,  # Pod & Stem Blight: around R6
+    3,   # Red Crown Rot: around V2
+    8,   # Fusarium wilt/root rot: around R2
+    10,  # Charcoal Rot: around R4
+    9    # Southern Blight: around R3
+  ),
+  
+  Stage_label = c("R3–R6", "V2–V4", "R5–R8", "R3–R8", "VE–V6", 
+                  "Seedling–R7", "R1–R7", "Mid-season")
+)
+
+# Ellipsoid size/range
+# Increase/decrease these values to make each disease cloud larger/smaller
+
+data$Temp_sd <- c(1.5, 2.0, 2.0, 2.0, 2.5, 3.0, 2.0, 2.0)
+data$Moisture_sd <- c(0.05, 0.07, 0.08, 0.08, 0.10, 0.12, 0.08, 0.10)
+data$Stage_sd <- c(2.0, 1.5, 1.2, 2.0, 2.0, 4.0, 3.0, 2.0)
+
+# Label offsets
+data$Label_x <- data$Temp + 0.6
+data$Label_y <- data$Moisture + 0.025
+data$Label_z <- data$Stage + 0.3
+
+colors <- c(
+  "brown", "red", "orange", "purple",
+  "darkred", "blue", "black", "green"
+)
+
+# Create 3D ellipsoid plot
+
+p <- plot_ly()
+
+for(i in 1:nrow(data)) {
+  
+  u <- seq(0, 2*pi, length.out = 35)
+  v <- seq(0, pi, length.out = 35)
+  
+  x <- outer(data$Temp_sd[i] * cos(u), sin(v)) + data$Temp[i]
+  y <- outer(data$Moisture_sd[i] * sin(u), sin(v)) + data$Moisture[i]
+  z <- outer(rep(1, length(u)), data$Stage_sd[i] * cos(v)) + data$Stage[i]
+  
+  p <- p %>%
+    add_surface(
+      x = x,
+      y = y,
+      z = z,
+      opacity = 0.32,
+      showscale = FALSE,
+      colorscale = list(c(0, 1), c(colors[i], colors[i])),
+      name = data$Disease[i],
+      hoverinfo = "text",
+      text = paste0(
+        "<b>", data$Disease[i], "</b>",
+        "<br>Temperature: ", data$Temp[i], " °C",
+        "<br>Moisture index: ", data$Moisture[i],
+        "<br>Growth stage: ", data$Stage_label[i]
+      )
+    )
+}
+
+# =========================
+# Add labels
+# =========================
+
+p <- p %>%
+  add_trace(
+    data = data,
+    x = ~Label_x,
+    y = ~Label_y,
+    z = ~Label_z,
+    type = "scatter3d",
+    mode = "text",
+    text = ~Disease,
+    textfont = list(
+      size = 11,
+      color = "black"
+    ),
+    showlegend = FALSE,
+    hoverinfo = "none"
+  )
+
+# Optional: add center points
+
+
+p <- p %>%
+  add_trace(
+    data = data,
+    x = ~Temp,
+    y = ~Moisture,
+    z = ~Stage,
+    type = "scatter3d",
+    mode = "markers",
+    marker = list(
+      size = 3,
+      color = "black"
+    ),
+    showlegend = FALSE,
+    hoverinfo = "none"
+  )
+
+# Layout
+
+p <- plotly::layout(
+  p,
+  
+  title = "Conceptual 3D Favorability Space for Soybean Stem Diseases",
+  
+  scene = list(
+    
+    xaxis = list(
+      title = "Temperature (°C)",
+      range = c(17, 35)
+    ),
+    
+    yaxis = list(
+      title = "Moisture",
+      range = c(0, 1),
+      
+      tickvals = c(0.2, 0.4, 0.6, 0.8, 1.0),
+      ticktext = c("0.2", "0.4", "0.6", "0.8", "1.0")
+    ),
+    
+    zaxis = list(
+      title = "Soybean Growth Stage",
+      range = c(0, 14),
+      tickvals = c(0, 1, 2, 3, 4, 5, 6,
+                   7, 8, 9, 10, 11, 12, 13, 14),
+      ticktext = c("VE", "VC", "V1", "V2", "V3", "V4", "V5",
+                   "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8")
+    )
+  )
+)
+
+p
